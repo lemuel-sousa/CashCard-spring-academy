@@ -12,6 +12,8 @@ import com.jayway.jsonpath.JsonPath;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.net.URI;
+
 @SpringBootTest( webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class CashCardApplicationTests {
 
@@ -33,4 +35,30 @@ class CashCardApplicationTests {
 		assertThat(amount).isEqualTo(123.45);
 	}
 
+	@Test
+	void shouldNotReturnACashCardWithAnUnknownId() {
+		ResponseEntity<String> response = restTemplate
+			.getForEntity("/cashcards/9999999", String.class);
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+	}
+
+	@Test
+	void shouldCreateACashCard() {
+		var newCashCard = new CashCard(null, 360.25);
+		ResponseEntity<Void> response = restTemplate
+			.postForEntity("/cashcards", newCashCard, Void.class);
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+
+		URI locationOfNewCashCard = response.getHeaders().getLocation();
+		ResponseEntity<String> getResponse = restTemplate
+			.getForEntity(locationOfNewCashCard, String.class);
+		assertThat(getResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+		
+		DocumentContext bodyResponse = JsonPath.parse(getResponse.getBody());
+		Number id = bodyResponse.read("$.id");
+		assertThat(id).isNotNull();
+		
+		Double amount = bodyResponse.read("$.amount");
+		assertThat(amount).isEqualTo(360.25);
+	}
 }
