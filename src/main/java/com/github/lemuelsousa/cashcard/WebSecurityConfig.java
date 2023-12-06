@@ -19,9 +19,8 @@ public class WebSecurityConfig {
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .authorizeHttpRequests(request -> request
-                .requestMatchers("/cashcards/**")
-                // .permitAll());
-                .authenticated())
+                .requestMatchers("/cashcards/**").hasRole("CARD-OWNER")
+                .anyRequest().authenticated())
                 .csrf(csrf -> csrf.disable())
                 .httpBasic(Customizer.withDefaults());
         return http.build();
@@ -33,10 +32,15 @@ public class WebSecurityConfig {
         UserDetails lemuk = users
             .username("lemuk")
             .password(passwordEncoder.encode("lemuk123"))
-            .roles()
+            .roles("CARD-OWNER")
+            .build();
+        UserDetails unauthorizedUser = users
+            .username("unauthorized-user")
+            .password(passwordEncoder.encode("block123"))
+            .roles("NON-OWNER")
             .build();
         
-        return new InMemoryUserDetailsManager(lemuk);
+        return new InMemoryUserDetailsManager(lemuk, unauthorizedUser);
     }
 
     @Bean
