@@ -52,7 +52,7 @@ class CashCardApplicationTests {
 	@Test
 	@DirtiesContext
 	void shouldCreateACashCard() {
-		var newCashCard = new CashCard(null, 360.00, "lemuk");
+		var newCashCard = new CashCard(null, 360.00, null);
 		ResponseEntity<Void> response = restTemplate
 				.withBasicAuth("lemuk", "lemuk123")
 				.postForEntity("/cashcards", newCashCard, Void.class);
@@ -67,8 +67,10 @@ class CashCardApplicationTests {
 		DocumentContext bodyResponse = JsonPath.parse(getResponse.getBody());
 		Number id = bodyResponse.read("$.id");
 		Double amount = bodyResponse.read("$.amount");
+		String owner = bodyResponse.read("$.owner");
 		assertThat(id).isNotNull();
 		assertThat(amount).isEqualTo(360);
+		assertThat(owner).isEqualTo("lemuk");
 	}
 
 	@Test
@@ -119,4 +121,35 @@ class CashCardApplicationTests {
 		var amountsInAscOrder = Collections.unmodifiableList(List.of(123.45, 150.00, 200.00));
 		assertThat(amounts).containsExactlyElementsOf(amountsInAscOrder);
 	}
+
+	@Test
+	void shouldNotReturnACashCardWhenUsingBadCredentials() {
+		ResponseEntity<String> response = restTemplate
+			.withBasicAuth("BAD-USER", "lemuk123")
+			.getForEntity("/cashcards", String.class);
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+
+		response = restTemplate
+			.withBasicAuth("lemuk", "BAD-PASSWORD")
+			.getForEntity("/cashcards", String.class);
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+	}
+
+	@Test
+	void shouldRejectUsersWhoAreNotCardOwners() {
+		ResponseEntity<String> response = restTemplate
+			.withBasicAuth("unauthorized-user", "block123")
+			.getForEntity("/cashcards", String.class);
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+	}
+
+	@Test
+	void shouldNotAllowAccessToCashCardsTheyDoNotOwn() {
+		ResponseEntity<String> response = restTemplate
+			.withBasicAuth("lemuk", "lemuk123")
+			.getForEntity("/cashcards/102", String.class);
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+	}
+
+
 }
